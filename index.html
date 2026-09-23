@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>증권신고서 자동 검수</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────── design tokens (설계서 2.1) ─────────────────────────── */
+:root{
+  --brand-50:#e8f3ff; --brand-100:#c9e2ff; --brand-500:#3182f6; --brand-600:#2272eb; --brand-700:#1b64da;
+  --ink-900:#191f28; --ink-700:#333d4b; --ink-500:#4e5968; --ink-300:#8b95a1; --ink-100:#e5e8eb;
+  --canvas:#f2f4f6; --surface:#ffffff;
+  --danger-500:#f04452; --danger-50:#ffeff0;
+  --warn-500:#ff9500;   --warn-50:#fff5e6;
+  --safe-500:#00c471;   --safe-50:#e7f9f0;
+  --radius-card:20px; --radius-sheet:28px; --radius-pill:999px; --radius-ctl:14px;
+  --shadow-card:0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .06);
+  --shadow-float:0 4px 12px rgb(0 0 0 / .08), 0 16px 40px rgb(0 0 0 / .12);
+  --font-sans:"Noto Sans KR","Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --text-display:28px; --text-title:20px; --text-body:15px; --text-caption:13px;
+  --ease-toss:cubic-bezier(.32,.72,0,1); --dur-fast:180ms; --dur-base:280ms;
+  --page-paper:#ffffff; --page-line:#dfe3e8;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --brand-50:#12233a; --brand-100:#173456; --brand-500:#4c94ff; --brand-600:#3182f6; --brand-700:#2272eb;
+    --ink-900:#eef1f5; --ink-700:#cfd6df; --ink-500:#9aa5b1; --ink-300:#6b7684; --ink-100:#2b3442;
+    --canvas:#12151a; --surface:#1b1f26;
+    --danger-50:#3a1c21; --warn-50:#3a2a10; --safe-50:#0f3125;
+    --shadow-card:0 1px 2px rgb(0 0 0 / .4), 0 8px 24px rgb(0 0 0 / .35);
+    --shadow-float:0 4px 12px rgb(0 0 0 / .45), 0 16px 40px rgb(0 0 0 / .5);
+    --page-paper:#232830; --page-line:#39414d;
+  }
+}
+:root[data-theme="dark"]{
+  --brand-50:#12233a; --brand-100:#173456; --brand-500:#4c94ff; --brand-600:#3182f6; --brand-700:#2272eb;
+  --ink-900:#eef1f5; --ink-700:#cfd6df; --ink-500:#9aa5b1; --ink-300:#6b7684; --ink-100:#2b3442;
+  --canvas:#12151a; --surface:#1b1f26;
+  --danger-50:#3a1c21; --warn-50:#3a2a10; --safe-50:#0f3125;
+  --shadow-card:0 1px 2px rgb(0 0 0 / .4), 0 8px 24px rgb(0 0 0 / .35);
+  --shadow-float:0 4px 12px rgb(0 0 0 / .45), 0 16px 40px rgb(0 0 0 / .5);
+  --page-paper:#232830; --page-line:#39414d;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--canvas); color:var(--ink-900);
+  font-family:var(--font-sans); font-size:var(--text-body); line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;}
+:focus-visible{outline:2px solid var(--brand-500);outline-offset:2px;border-radius:8px;}
+img{max-width:100%;}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+.press{transition:transform var(--dur-fast) var(--ease-toss), background var(--dur-fast) var(--ease-toss);}
+.press:active{transform:scale(.97);}
+
+/* ─────────────────────────── shell ─────────────────────────── */
+.shell{max-width:1180px;margin:0 auto;padding:0 20px 120px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 0 4px;position:sticky;top:0;background:var(--canvas);z-index:20;}
+.topbar-left{display:flex;align-items:center;gap:10px;min-width:0;}
+.backbtn{display:inline-flex;align-items:center;gap:6px;color:var(--ink-500);font-size:var(--text-caption);
+  padding:8px 10px;border-radius:var(--radius-pill);}
+.backbtn:hover{background:var(--ink-100);}
+.topbar-actions{display:flex;align-items:center;gap:6px;}
+.ghostbtn{color:var(--ink-500);font-size:var(--text-caption);padding:8px 12px;border-radius:var(--radius-pill);}
+.ghostbtn:hover{background:var(--ink-100);color:var(--ink-700);}
+
+h1.display{font-size:var(--text-display);font-weight:700;letter-spacing:-.4px;margin:18px 0 6px;line-height:1.3;}
+p.sub{color:var(--ink-500);font-size:var(--text-caption);margin:0 0 22px;}
+
+.card{background:var(--surface);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:20px;}
+.card + .card{margin-top:12px;}
+.card-head{display:flex;align-items:center;gap:10px;}
+.card-title{font-size:16px;font-weight:700;letter-spacing:-.2px;}
+.tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:var(--radius-pill);}
+.tag-req{background:var(--brand-50);color:var(--brand-600);}
+.tag-opt{background:var(--canvas);color:var(--ink-300);}
+.card-main{border:1px solid color-mix(in srgb,var(--brand-500) 20%, transparent);}
+
+/* dropzone */
+.dropzone{margin-top:16px;border:2px dashed var(--ink-100);border-radius:18px;background:var(--canvas);
+  padding:34px 18px;text-align:center;transition:all var(--dur-base) var(--ease-toss);cursor:pointer;}
+.dropzone:hover{border-color:var(--brand-100);}
+.dropzone.drag{border-color:var(--brand-500);background:var(--brand-50);transform:scale(1.01);}
+.dz-emoji{font-size:30px;display:block;line-height:1;margin-bottom:10px;}
+.dz-title{font-weight:700;font-size:var(--text-body);}
+.dz-hint{color:var(--ink-300);font-size:var(--text-caption);margin-top:4px;}
+.dz-pick{display:inline-block;margin-top:14px;background:var(--surface);border:1px solid var(--ink-100);
+  padding:9px 18px;border-radius:var(--radius-pill);font-size:var(--text-caption);font-weight:700;color:var(--ink-700);}
+
+.or{display:flex;align-items:center;gap:10px;color:var(--ink-300);font-size:12px;margin:18px 0 12px;}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--ink-100);}
+.urlrow{display:flex;gap:8px;}
+.urlrow input{flex:1;min-width:0;background:var(--canvas);border:1px solid transparent;border-radius:var(--radius-ctl);
+  padding:13px 14px;font-size:var(--text-caption);color:var(--ink-900);font-family:inherit;}
+.urlrow input::placeholder{color:var(--ink-300);}
+.urlrow input:focus{border-color:var(--brand-500);background:var(--surface);outline:none;}
+.urlrow button{background:var(--ink-900);color:var(--surface);padding:0 20px;border-radius:var(--radius-ctl);
+  font-size:var(--text-caption);font-weight:700;}
+:root[data-theme="dark"] .urlrow button, :root:not([data-theme="light"]) .urlrow button{color:#12151a;}
+.urlnote{font-size:12px;color:var(--ink-300);margin-top:8px;}
+.urlnote.bad{color:var(--danger-500);}
+
+/* dart integration card */
+.dart-card .card-title{font-size:16px;}
+.dart-badge{margin-left:auto;font-size:11px;font-weight:700;padding:4px 10px;border-radius:var(--radius-pill);
+  background:var(--canvas);color:var(--ink-300);}
+.dart-badge[data-state="ok"]{background:var(--safe-50);color:var(--safe-500);}
+.dart-badge[data-state="error"]{background:var(--danger-50);color:var(--danger-500);}
+.dart-note{font-size:12px;color:var(--ink-300);margin:8px 0 16px;line-height:1.65;}
+.dart-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:520px){.dart-grid{grid-template-columns:1fr;}}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field label{font-size:12px;font-weight:700;color:var(--ink-500);}
+.field-row{position:relative;display:flex;align-items:center;}
+.field input,.field select{width:100%;background:var(--canvas);border:1px solid transparent;border-radius:var(--radius-ctl);
+  padding:12px 14px;font-size:14px;color:var(--ink-900);font-family:inherit;}
+.field input:focus,.field select:focus{border-color:var(--brand-500);background:var(--surface);outline:none;}
+.field input[type="password"],.field input.has-toggle{padding-right:46px;}
+.field-toggle{position:absolute;right:6px;font-size:12px;color:var(--ink-300);padding:8px 10px;border-radius:10px;}
+.field-toggle:hover{background:var(--ink-100);color:var(--ink-700);}
+.field-span2{grid-column:1/-1;}
+.dart-actions{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;}
+.dart-verify{background:var(--ink-900);color:#fff;padding:12px 20px;border-radius:var(--radius-ctl);
+  font-size:14px;font-weight:700;}
+:root[data-theme="dark"] .dart-verify, :root:not([data-theme="light"]) .dart-verify{color:#12151a;}
+.dart-verify[disabled]{opacity:.5;cursor:not-allowed;}
+.dart-status{font-size:13px;color:var(--ink-500);flex:1;min-width:180px;}
+.dart-status.ok{color:var(--safe-500);font-weight:700;}
+.dart-status.err{color:var(--danger-500);}
+.dart-remember{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-300);margin-top:12px;}
+.dart-remember input{accent-color:var(--brand-500);}
+.dart-fallback{margin-top:12px;background:var(--warn-50);color:var(--warn-500);border-radius:var(--radius-ctl);
+  padding:12px 14px;font-size:12px;line-height:1.7;}
+.dart-fallback strong{display:block;margin-bottom:3px;color:var(--ink-900);font-size:13px;}
+
+/* accordion */
+.acc-head{display:flex;align-items:center;gap:10px;width:100%;text-align:left;}
+.acc-chev{margin-left:auto;color:var(--ink-300);transition:transform var(--dur-base) var(--ease-toss);}
+.acc.open .acc-chev{transform:rotate(180deg);}
+.acc-body{display:none;}
+.acc.open .acc-body{display:block;}
+
+/* file chips */
+.chips{margin-top:12px;display:flex;flex-direction:column;gap:8px;}
+.filechip{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:16px;
+  box-shadow:var(--shadow-card);padding:14px 16px;}
+.filechip .fc-ico{width:34px;height:34px;border-radius:12px;background:var(--safe-50);color:var(--safe-500);
+  display:grid;place-items:center;font-size:15px;flex:none;}
+.fc-name{font-weight:700;font-size:14px;word-break:break-all;}
+.fc-meta{color:var(--ink-300);font-size:12px;}
+.fc-del{margin-left:auto;color:var(--ink-300);font-size:12px;padding:6px 10px;border-radius:var(--radius-pill);}
+.fc-del:hover{background:var(--danger-50);color:var(--danger-500);}
+
+/* sticky CTA */
+.cta-dock{position:fixed;left:0;right:0;bottom:0;padding:14px 20px calc(14px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,var(--canvas) 68%,transparent);z-index:30;}
+.cta-inner{max-width:1180px;margin:0 auto;}
+.cta{width:100%;height:56px;border-radius:16px;background:var(--brand-500);color:#fff;font-weight:700;font-size:16px;}
+.cta:hover{background:var(--brand-600);}
+.cta[disabled]{background:var(--ink-100);color:var(--ink-300);cursor:not-allowed;transform:none;}
+
+/* ─────────────────────────── parsing sheet ─────────────────────────── */
+.scrim{position:fixed;inset:0;background:rgb(0 0 0 / .45);z-index:60;display:grid;place-items:end center;
+  opacity:0;pointer-events:none;transition:opacity var(--dur-base) var(--ease-toss);}
+.scrim.on{opacity:1;pointer-events:auto;}
+.sheet{width:100%;max-width:460px;background:var(--surface);border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;
+  padding:32px 26px calc(34px + env(safe-area-inset-bottom));text-align:center;
+  transform:translateY(24px);transition:transform var(--dur-base) var(--ease-toss);}
+.scrim.on .sheet{transform:translateY(0);}
+@media(min-width:600px){.scrim{place-items:center;} .sheet{border-radius:var(--radius-sheet);}}
+.ring{margin:4px auto 20px;display:block;}
+.ring circle{fill:none;stroke-linecap:round;}
+.ring .track{stroke:var(--ink-100);}
+.ring .bar{stroke:var(--brand-500);transition:stroke-dashoffset 600ms var(--ease-toss);}
+.ring-num{font-size:26px;font-weight:700;fill:var(--ink-900);}
+.stage-msg{font-size:17px;font-weight:700;min-height:26px;letter-spacing:-.2px;}
+.stage-msg.swap{animation:rise var(--dur-base) var(--ease-toss);}
+@keyframes rise{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.steps{margin:22px auto 0;display:flex;flex-direction:column;gap:11px;text-align:left;max-width:290px;}
+.step{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-300);}
+.step .dot{width:18px;text-align:center;flex:none;}
+.step.done{color:var(--ink-700);}
+.step.done .dot{color:var(--safe-500);}
+.step.now{color:var(--ink-900);font-weight:700;}
+.step.now .dot{color:var(--brand-500);animation:pulse 1.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+.wait{margin-top:22px;color:var(--ink-300);font-size:var(--text-caption);}
+
+/* ─────────────────────────── dashboard ─────────────────────────── */
+.hero{background:var(--surface);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:26px 24px;}
+.hero h2{margin:0;font-size:var(--text-display);font-weight:700;letter-spacing:-.6px;}
+.hero .headline-sub{color:var(--ink-500);margin:6px 0 20px;font-size:14px;}
+.bar{height:8px;border-radius:var(--radius-pill);background:var(--ink-100);overflow:hidden;}
+.bar>i{display:block;height:100%;width:0;border-radius:var(--radius-pill);background:var(--brand-500);
+  transition:width 900ms var(--ease-toss);}
+.hero-meta{display:flex;justify-content:space-between;color:var(--ink-300);font-size:12px;margin-top:8px;}
+.chiprow{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;}
+.schip{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:var(--radius-pill);
+  font-size:var(--text-caption);font-weight:700;background:var(--canvas);color:var(--ink-500);
+  border:1.5px solid transparent;}
+.schip[aria-pressed="true"]{border-color:currentColor;}
+.schip[data-tone="danger"]{background:var(--danger-50);color:var(--danger-500);}
+.schip[data-tone="warn"]{background:var(--warn-50);color:var(--warn-500);}
+.schip[data-tone="safe"]{background:var(--safe-50);color:var(--safe-500);}
+
+.tabs{display:flex;gap:4px;margin:26px 0 4px;border-bottom:1px solid var(--ink-100);overflow-x:auto;}
+.tab{position:relative;padding:13px 16px;font-size:14px;font-weight:700;color:var(--ink-300);white-space:nowrap;}
+.tab[aria-selected="true"]{color:var(--ink-900);}
+.tab::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;border-radius:2px;
+  background:var(--brand-500);transform:scaleX(0);transition:transform var(--dur-base) var(--ease-toss);}
+.tab[aria-selected="true"]::after{transform:scaleX(1);}
+.tab .cnt{margin-left:6px;font-size:11px;color:var(--ink-300);font-weight:700;}
+
+.list{display:flex;flex-direction:column;gap:12px;margin-top:16px;}
+.finding{background:var(--surface);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:20px;}
+.finding.resolved{opacity:.5;}
+.f-head{display:flex;gap:12px;align-items:flex-start;}
+.sev{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 9px;
+  border-radius:var(--radius-pill);flex:none;}
+.sev-error{background:var(--danger-50);color:var(--danger-500);}
+.sev-warning{background:var(--warn-50);color:var(--warn-500);}
+.sev-info{background:var(--brand-50);color:var(--brand-500);}
+.f-title{font-size:var(--text-body);font-weight:700;letter-spacing:-.2px;margin-top:2px;}
+.f-loc{margin-left:auto;flex:none;font-size:12px;color:var(--ink-300);padding:4px 8px;border-radius:8px;}
+.f-loc:hover{color:var(--brand-500);background:var(--brand-50);}
+.f-badge{font-size:11px;color:var(--ink-300);border:1px solid var(--ink-100);border-radius:var(--radius-pill);
+  padding:3px 8px;margin-left:8px;}
+
+.diff{display:grid;grid-template-columns:1fr 26px 1fr;align-items:center;gap:8px;margin-top:16px;}
+.diff-col{border-radius:16px;padding:14px;min-height:74px;}
+.diff-col .lbl{font-size:11px;font-weight:700;opacity:.75;}
+.diff-col .val{font-size:16px;font-weight:700;margin-top:5px;word-break:break-all;line-height:1.35;}
+.diff-col .note{font-size:11px;opacity:.8;margin-top:3px;}
+.diff-stated{background:var(--danger-50);color:var(--danger-500);}
+.diff-expected{background:var(--safe-50);color:var(--safe-500);}
+.diff-none{background:var(--canvas);color:var(--ink-300);}
+.diff-arrow{text-align:center;color:var(--ink-300);font-size:15px;}
+@media(max-width:560px){.diff{grid-template-columns:1fr;} .diff-arrow{transform:rotate(90deg);}}
+
+.explain{margin-top:14px;background:var(--canvas);border-radius:var(--radius-ctl);padding:13px 14px;
+  font-size:var(--text-caption);color:var(--ink-700);line-height:1.6;}
+.ev{display:flex;gap:9px;align-items:baseline;margin-top:10px;font-size:12px;color:var(--ink-500);flex-wrap:wrap;}
+.ev .kind{font-size:10px;font-weight:700;background:var(--brand-50);color:var(--brand-600);
+  padding:3px 7px;border-radius:var(--radius-pill);flex:none;}
+.ev a{color:var(--brand-500);text-decoration:none;}
+.ev a:hover{text-decoration:underline;}
+.acts{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+.act{flex:1;min-width:110px;border-radius:var(--radius-ctl);padding:12px;font-size:14px;font-weight:700;
+  background:var(--canvas);color:var(--ink-700);}
+.act-primary{background:var(--brand-500);color:#fff;}
+.act-primary:hover{background:var(--brand-600);}
+.act-quiet{flex:0 0 auto;min-width:0;padding:12px 16px;color:var(--ink-300);background:transparent;font-weight:500;}
+.state-note{margin-top:14px;font-size:12px;color:var(--ink-300);display:flex;gap:10px;align-items:center;}
+.state-note button{color:var(--brand-500);font-size:12px;font-weight:700;}
+
+/* checklist */
+.check{display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid var(--ink-100);}
+.check:last-child{border-bottom:0;}
+.check .ck{width:22px;flex:none;text-align:center;}
+.check .ck-label{font-size:14px;font-weight:500;}
+.check .ck-miss{font-size:12px;color:var(--warn-500);margin-top:2px;}
+.check .ck-page{margin-left:auto;font-size:12px;color:var(--ink-300);flex:none;}
+
+/* research */
+.deck{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory;}
+.rcard{flex:0 0 240px;scroll-snap-align:start;background:var(--surface);border-radius:var(--radius-card);
+  box-shadow:var(--shadow-card);padding:18px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;}
+.rcard .prov{font-size:11px;font-weight:700;color:var(--brand-600);background:var(--brand-50);
+  align-self:flex-start;padding:4px 9px;border-radius:var(--radius-pill);}
+.rcard .rt{font-size:15px;font-weight:700;}
+.rcard .rr{font-size:12px;color:var(--ink-500);line-height:1.6;}
+.rcard .rq{margin-top:auto;font-size:11px;color:var(--ink-300);}
+.section-head{margin:30px 0 12px;font-size:var(--text-caption);color:var(--ink-500);font-weight:700;}
+.empty{background:var(--surface);border-radius:var(--radius-card);box-shadow:var(--shadow-card);
+  padding:46px 20px;text-align:center;color:var(--ink-300);font-size:14px;}
+.empty strong{display:block;color:var(--ink-700);font-size:16px;margin-bottom:6px;}
+
+/* ─────────────────────────── source viewer ─────────────────────────── */
+.viewer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--surface);
+  box-shadow:var(--shadow-float);z-index:70;transform:translateX(100%);
+  transition:transform var(--dur-base) var(--ease-toss);display:flex;flex-direction:column;}
+.viewer.on{transform:none;}
+@media(max-width:680px){.viewer{width:100%;transform:translateY(100%);} .viewer.on{transform:none;}}
+.v-head{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--ink-100);}
+.v-title{font-size:14px;font-weight:700;}
+.v-sub{font-size:12px;color:var(--ink-300);}
+.v-close{margin-left:auto;color:var(--ink-300);padding:8px 10px;border-radius:var(--radius-pill);}
+.v-close:hover{background:var(--ink-100);}
+.v-body{flex:1;overflow:auto;padding:18px;background:var(--canvas);}
+.paper{position:relative;width:100%;aspect-ratio:1/1.414;background:var(--page-paper);border-radius:8px;
+  box-shadow:var(--shadow-card);overflow:hidden;transform-origin:top left;transition:transform var(--dur-base) var(--ease-toss);}
+.paper .ln{position:absolute;height:6px;border-radius:3px;background:var(--page-line);}
+.paper .tbl{position:absolute;border:1px solid var(--page-line);}
+.paper .tbl i{position:absolute;background:var(--page-line);}
+.hl{position:absolute;border-radius:4px;background:color-mix(in srgb,var(--brand-500) 22%,transparent);
+  border:2px solid var(--brand-500);animation:hlpop 520ms var(--ease-toss);}
+@keyframes hlpop{from{opacity:0;transform:scale(1.35);}to{opacity:1;transform:none;}}
+.v-foot{padding:12px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--ink-100);
+  display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-300);}
+.zoom{margin-left:auto;display:flex;gap:6px;}
+.zoom button{background:var(--canvas);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;color:var(--ink-700);}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,16px);z-index:90;
+  background:var(--ink-900);color:var(--canvas);padding:13px 20px;border-radius:var(--radius-pill);
+  font-size:var(--text-caption);font-weight:700;box-shadow:var(--shadow-float);
+  opacity:0;pointer-events:none;transition:all var(--dur-base) var(--ease-toss);max-width:88vw;text-align:center;}
+.toast.on{opacity:1;transform:translate(-50%,0);}
+
+.foot{margin-top:34px;color:var(--ink-300);font-size:12px;line-height:1.7;}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ PAGE 1 · Ingestion ══════════════ -->
+<main class="shell" id="page-ingest">
+  <div class="topbar">
+    <div class="topbar-left"><button class="backbtn press">← 뒤로</button></div>
+    <div class="topbar-actions">
+      <button class="ghostbtn press" id="themeBtn">테마</button>
+      <button class="ghostbtn press" id="helpBtn">도움말 ?</button>
+    </div>
+  </div>
+
+  <h1 class="display">검수할 서류를 올려주세요</h1>
+  <p class="sub">신고서만 있어도 시작할 수 있어요 🙂</p>
+
+  <section class="card card-main">
+    <div class="card-head">
+      <span aria-hidden="true">📄</span>
+      <span class="card-title">증권신고서</span>
+      <span class="tag tag-req">필수</span>
+    </div>
+
+    <div class="dropzone press" id="dzMain" tabindex="0" role="button"
+         aria-label="증권신고서 파일을 놓거나 눌러서 선택하세요">
+      <span class="dz-emoji" aria-hidden="true">⬆️</span>
+      <div class="dz-title" id="dzMainTitle">여기에 파일을 놓아주세요</div>
+      <div class="dz-hint">HWP · HWPX · PDF · DOCX · XLSX (최대 80MB)</div>
+      <span class="dz-pick">파일 선택</span>
+    </div>
+    <input type="file" id="fileMain" class="sr" accept=".hwp,.hwpx,.pdf,.docx,.xlsx">
+
+    <div class="or">또는 URL로</div>
+    <div class="urlrow">
+      <input id="urlInput" type="url" inputmode="url" placeholder="https://dart.fss.or.kr/..." aria-label="문서 URL">
+      <button class="press" id="urlBtn">확인</button>
+    </div>
+    <p class="urlnote" id="urlNote">DART·KRX 주소만 가져올 수 있어요. 서버가 대신 내려받아요.</p>
+
+    <div class="chips" id="chipsMain"></div>
+  </section>
+
+  <section class="card acc" id="accUnd">
+    <button class="acc-head press" aria-expanded="false" aria-controls="accUndBody">
+      <span aria-hidden="true">📝</span>
+      <span class="card-title">인수계약서</span>
+      <span class="tag tag-opt">선택</span>
+      <span class="acc-chev" aria-hidden="true">⌄</span>
+    </button>
+    <div class="acc-body" id="accUndBody">
+      <div class="dropzone press" tabindex="0" role="button" data-slot="underwriting" aria-label="인수계약서 파일 선택">
+        <span class="dz-emoji" aria-hidden="true">⬆️</span>
+        <div class="dz-title">여기에 파일을 놓아주세요</div>
+        <div class="dz-hint">신고서의 인수수수료율·인수인 정보와 대조해요</div>
+        <span class="dz-pick">파일 선택</span>
+      </div>
+      <div class="chips" data-chips="underwriting"></div>
+    </div>
+  </section>
+
+  <section class="card acc" id="accBond">
+    <button class="acc-head press" aria-expanded="false" aria-controls="accBondBody">
+      <span aria-hidden="true">📜</span>
+      <span class="card-title">사채관리계약서</span>
+      <span class="tag tag-opt">선택</span>
+      <span class="acc-chev" aria-hidden="true">⌄</span>
+    </button>
+    <div class="acc-body" id="accBondBody">
+      <div class="dropzone press" tabindex="0" role="button" data-slot="bond_mgmt" aria-label="사채관리계약서 파일 선택">
+        <span class="dz-emoji" aria-hidden="true">⬆️</span>
+        <div class="dz-title">여기에 파일을 놓아주세요</div>
+        <div class="dz-hint">사채관리회사·수수료·기한이익상실 조건을 대조해요</div>
+        <span class="dz-pick">파일 선택</span>
+      </div>
+      <div class="chips" data-chips="bond_mgmt"></div>
+    </div>
+  </section>
+
+  <section class="card acc" id="accAgent">
+    <button class="acc-head press" aria-expanded="false" aria-controls="accAgentBody">
+      <span aria-hidden="true">🏦</span>
+      <span class="card-title">원리금지급대행계약서</span>
+      <span class="tag tag-opt">선택</span>
+      <span class="acc-chev" aria-hidden="true">⌄</span>
+    </button>
+    <div class="acc-body" id="accAgentBody">
+      <div class="dropzone press" tabindex="0" role="button" data-slot="paying_agent" aria-label="원리금지급대행계약서 파일 선택">
+        <span class="dz-emoji" aria-hidden="true">⬆️</span>
+        <div class="dz-title">여기에 파일을 놓아주세요</div>
+        <div class="dz-hint">지급대행 은행·지급일정·수수료를 대조해요</div>
+        <span class="dz-pick">파일 선택</span>
+      </div>
+      <div class="chips" data-chips="paying_agent"></div>
+    </div>
+  </section>
+
+  <section class="card acc" id="accEtc">
+    <button class="acc-head press" aria-expanded="false" aria-controls="accEtcBody">
+      <span aria-hidden="true">📎</span>
+      <span class="card-title">기타 첨부서류</span>
+      <span class="tag tag-opt">선택</span>
+      <span class="acc-chev" aria-hidden="true">⌄</span>
+    </button>
+    <div class="acc-body" id="accEtcBody">
+      <div class="dropzone press" tabindex="0" role="button" data-slot="etc" aria-label="기타 첨부서류 파일 선택">
+        <span class="dz-emoji" aria-hidden="true">⬆️</span>
+        <div class="dz-title">여기에 파일을 놓아주세요</div>
+        <div class="dz-hint">감사보고서·평가의견서 등</div>
+        <span class="dz-pick">파일 선택</span>
+      </div>
+      <div class="chips" data-chips="etc"></div>
+    </div>
+  </section>
+
+  <section class="card dart-card">
+    <div class="card-head">
+      <span aria-hidden="true">🏛️</span>
+      <span class="card-title">DART 연동</span>
+      <span class="dart-badge" id="dartBadge" data-state="idle">연동 전</span>
+    </div>
+    <p class="dart-note">
+      DART Open API 키로 과거 공시 재무수치를 직접 대조해요. 발급은
+      <a href="https://opendart.fss.or.kr" target="_blank" rel="noopener" style="color:var(--brand-500)">opendart.fss.or.kr</a>에서 무료로 할 수 있어요.
+      브라우저는 DART에 직접 요청할 수 없어서(CORS) 서버 프록시 주소가 필요해요 — 비워두면 직접 시도해보고, 막히면 예시 데이터로 안내할게요.
+    </p>
+    <div class="dart-grid">
+      <div class="field field-span2">
+        <label for="dartKey">DART API 키</label>
+        <div class="field-row">
+          <input type="password" id="dartKey" class="has-toggle" placeholder="발급받은 40자리 키를 붙여넣으세요" autocomplete="off">
+          <button type="button" class="field-toggle press" id="dartKeyToggle">보기</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="dartCorp">고유번호 (corp_code)</label>
+        <input type="text" id="dartCorp" placeholder="예: 00126380" value="00126380" inputmode="numeric" maxlength="8">
+      </div>
+      <div class="field">
+        <label for="dartYear">사업연도</label>
+        <input type="text" id="dartYear" placeholder="예: 2025" value="2025" inputmode="numeric" maxlength="4">
+      </div>
+      <div class="field">
+        <label for="dartReprt">보고서 종류</label>
+        <select id="dartReprt">
+          <option value="11011" selected>사업보고서</option>
+          <option value="11012">반기보고서</option>
+          <option value="11013">1분기보고서</option>
+          <option value="11014">3분기보고서</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="dartProxy">프록시 서버 주소 (선택)</label>
+        <input type="text" id="dartProxy" placeholder="https://api.yourdomain.com/dart">
+      </div>
+    </div>
+    <div class="dart-actions">
+      <button class="dart-verify press" id="dartVerifyBtn">연동 확인</button>
+      <span class="dart-status" id="dartStatus">아직 확인하지 않았어요</span>
+    </div>
+    <label class="dart-remember">
+      <input type="checkbox" id="dartRemember"> 이 브라우저에 키를 기억해 둘게요 (다른 사람과 공유되지 않아요)
+    </label>
+    <div class="dart-fallback" id="dartFallback" hidden></div>
+  </section>
+
+  <p class="foot">
+    올린 파일은 검수에만 쓰고 90일 뒤 자동으로 지워요. 공시 전 신고서는 미공개 중요정보라
+    외부 모델 학습에 사용되지 않아요.<br>
+    이 화면은 설계서 기반 프로토타입이라, 실제 파일을 서버로 보내지 않고 예시 리포트를 보여줘요.
+  </p>
+</main>
+
+<!-- ══════════════ PAGE 2 · Dashboard ══════════════ -->
+<main class="shell" id="page-dash" hidden>
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="backbtn press" id="dashBack">← 새로 검수하기</button>
+    </div>
+    <div class="topbar-actions">
+      <button class="ghostbtn press" id="themeBtn2">테마</button>
+      <button class="ghostbtn press" id="exportBtn">수정본 내보내기</button>
+    </div>
+  </div>
+
+  <section class="hero">
+    <h2><span id="rateNum">0</span>% 검수 완료!</h2>
+    <p class="headline-sub" id="subline">수치 오류 2개를 찾았어요 🔍</p>
+    <p class="headline-sub" id="issuerLine" style="margin-top:-14px"></p>
+    <div class="bar"><i id="heroBar"></i></div>
+    <div class="hero-meta">
+      <span id="metaLeft">145개 항목을 확인했어요</span>
+      <span id="metaRight">41.3초 걸렸어요</span>
+    </div>
+    <div class="chiprow" id="chipRow" role="group" aria-label="심각도 필터"></div>
+  </section>
+
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div id="tabPanel" role="tabpanel"></div>
+
+  <p class="foot">
+    최종 확인은 담당자와 법률자문의 몫이에요. 이 검수 결과가 법적 적정성을 보증하지는 않아요.<br>
+    엔진 2026.09.1 · 프롬프트 p3 · 계정 3개는 DART 표준계정과 매칭하지 못해 대조를 건너뛰었어요.
+  </p>
+</main>
+
+<div class="cta-dock" id="ctaDock">
+  <div class="cta-inner"><button class="cta press" id="startBtn" disabled>검수 시작하기</button></div>
+</div>
+
+<!-- parsing sheet -->
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="stageMsg">
+  <div class="sheet">
+    <svg class="ring" width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
+      <circle class="track" cx="70" cy="70" r="54" stroke-width="8"></circle>
+      <circle class="bar" id="ringBar" cx="70" cy="70" r="54" stroke-width="8"
+              stroke-dasharray="339.29" stroke-dashoffset="339.29" transform="rotate(-90 70 70)"></circle>
+      <text class="ring-num" id="ringNum" x="70" y="79" text-anchor="middle">0%</text>
+    </svg>
+    <div class="stage-msg" id="stageMsg">파일을 열어보고 있어요 📄</div>
+    <div class="steps" id="steps"></div>
+    <p class="wait" id="waitCopy">보통 40초 정도 걸려요</p>
+  </div>
+</div>
+
+<!-- source viewer -->
+<aside class="viewer" id="viewer" aria-hidden="true" aria-label="원문 보기">
+  <div class="v-head">
+    <div>
+      <div class="v-title" id="vTitle">원문에서 보기</div>
+      <div class="v-sub" id="vSub"></div>
+    </div>
+    <button class="v-close press" id="vClose" aria-label="닫기">✕</button>
+  </div>
+  <div class="v-body"><div class="paper" id="paper"></div></div>
+  <div class="v-foot">
+    <span>bbox는 0~1 정규화라 배율이 달라져도 정확히 맞아요</span>
+    <span class="zoom">
+      <button class="press" data-zoom="1">100%</button>
+      <button class="press" data-zoom="1.6">160%</button>
+    </span>
+  </div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* ══════════ InspectionReport (설계서 3.1 샘플 페이로드) ══════════ */
+const REPORT = {
+  schemaVersion:"1.0.0", reportId:"rpt_01HXQ8K3N7V2", jobId:"job_01HXQ8K0AA91",
+  status:"completed",
+  issuer:{corpName:"주식회사 예시테크", corpCode:"00126380"},
+  summary:{completionRate:0.94, checkedItems:145, elapsedMs:41280, passed:140},
+  tabs:[
+    {key:"financial",  label:"재무·수치"},
+    {key:"textFormat", label:"오탈자·양식"},
+    {key:"context",    label:"문맥·리서치"}
+  ],
+  findings:[
+    {id:"f_001", tab:"financial", category:"dart_mismatch", ruleId:"FIN-DART-001",
+     severity:"error", confidence:1.0, detector:"rule",
+     title:"매출액이 DART 공시 수치와 달라요",
+     explanation:"2025년 사업보고서에는 152,430백만원으로 공시돼 있어요. 90백만원 차이인데, 숫자 두 자리가 바뀐 것 같아요.",
+     stated:{display:"152,340백만원"}, expected:{display:"152,430백만원", note:"2025 사업보고서 기준"},
+     location:{page:42, label:"표3 · 요약재무정보", blockId:"p42-t3",
+               cell:{rowHeader:"매출액", colHeader:"제28기"},
+               bbox:{x:0.6123,y:0.3412,w:0.1180,h:0.0215}, kind:"table"},
+     evidence:[{kind:"dart", label:"2025 사업보고서 · 연결 손익계산서 (ifrs-full_Revenue)",
+                value:"152,430백만원", url:"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260315000123"}],
+     suggestion:{type:"replace_value", actionLabel:"152,430으로 수정"},
+     actions:["locate","apply","dismiss"], userState:{status:"open"}},
+
+    {id:"f_002", tab:"financial", category:"arithmetic", ruleId:"FIN-ARITH-001",
+     severity:"error", confidence:1.0, detector:"rule",
+     title:"모집총액이 발행가액 × 주식수와 맞지 않아요",
+     explanation:"12,500원 × 2,000,000주 = 25,000,000,000원인데 24,000,000,000원으로 적혀 있어요.",
+     stated:{display:"240억원", note:"24,000,000,000원"},
+     expected:{display:"250억원", note:"25,000,000,000원"},
+     location:{page:3, label:"모집 또는 매출에 관한 사항", blockId:"p3-t1",
+               bbox:{x:0.52,y:0.28,w:0.22,h:0.022}, kind:"table"},
+     evidence:[{kind:"internal", label:"발행가액 (p.3 표1)", value:"12,500원"},
+               {kind:"internal", label:"발행주식수 (p.3 표1)", value:"2,000,000주"}],
+     suggestion:{type:"replace_value", actionLabel:"25,000,000,000으로 수정"},
+     actions:["locate","apply","dismiss"], userState:{status:"open"}},
+
+    {id:"f_004", tab:"financial", category:"contract_mismatch", ruleId:"FIN-CTR-002",
+     severity:"warning", confidence:0.92, detector:"hybrid",
+     title:"인수수수료율이 계약서와 달라요",
+     explanation:"인수계약서에는 1.5%로 적혀 있는데 신고서에는 1.2%로 기재돼 있어요.",
+     stated:{display:"1.2%"}, expected:{display:"1.5%", note:"인수계약서 제4조"},
+     location:{page:7, label:"인수인에 관한 사항", blockId:"p7-t2",
+               bbox:{x:0.44,y:0.61,w:0.09,h:0.02}, kind:"table"},
+     evidence:[{kind:"cross_document", label:"인수계약서 제4조 (p.5)", value:"1.5%"}],
+     suggestion:{type:"review_only", actionLabel:"계약서 확인하기"},
+     actions:["locate","dismiss"], userState:{status:"open"}},
+
+    {id:"f_003", tab:"textFormat", category:"typo", ruleId:"TXT-SPELL-014",
+     severity:"warning", confidence:0.86, detector:"llm",
+     title:"띄어쓰기를 확인해 주세요",
+     explanation:"'주식회사의 이사회결의'는 '이사회 결의'로 띄어 쓰는 게 맞아요.",
+     stated:{display:"…주식회사의 이사회결의에 따라…"},
+     expected:{display:"…주식회사의 이사회 결의에 따라…"},
+     location:{page:12, label:"본문", blockId:"p12-l38", charStart:15420, charEnd:15425,
+               bbox:{x:0.212,y:0.554,w:0.078,h:0.017}, kind:"text"},
+     evidence:[],
+     suggestion:{type:"replace_text", actionLabel:"고치기"},
+     actions:["locate","apply","dismiss"], userState:{status:"open"}},
+
+    {id:"f_005", tab:"textFormat", category:"required_section_missing", ruleId:"FMT-REQ-007",
+     severity:"warning", confidence:0.78, detector:"llm",
+     title:"'투자위험요소 - 기타위험' 항목이 안 보여요",
+     explanation:"투자위험요소는 사업위험·회사위험·기타위험 세 갈래로 나눠 적어요. 기타위험 소제목을 찾지 못했어요.",
+     stated:null,
+     expected:{display:"III. 투자위험요소 > 3. 기타위험"},
+     location:{page:28, label:"투자위험요소 끝부분", blockId:"p28-l02",
+               bbox:{x:0.10,y:0.12,w:0.80,h:0.03}, kind:"text"},
+     evidence:[],
+     suggestion:{type:"add_section", actionLabel:"체크리스트 보기"},
+     actions:["locate","dismiss"], userState:{status:"open"}},
+
+    {id:"f_006", tab:"context", category:"context_inconsistency", ruleId:"CTX-CONS-003",
+     severity:"info", confidence:0.71, detector:"llm",
+     title:"자금사용 목적 설명이 앞뒤로 조금 달라요",
+     explanation:"p.9에서는 시설자금 60%라고 했는데 p.34 표에서는 45%로 보여요. 둘 중 하나를 맞춰주세요.",
+     stated:{display:"시설자금 60%", note:"p.9 본문"},
+     expected:{display:"시설자금 45%", note:"p.34 자금사용 계획표"},
+     location:{page:9, label:"자금의 사용목적", blockId:"p9-l21", charStart:8120, charEnd:8180,
+               bbox:{x:0.12,y:0.46,w:0.66,h:0.035}, kind:"text"},
+     evidence:[{kind:"internal", label:"p.34 자금사용 계획표", value:"시설자금 45%"}],
+     suggestion:{type:"review_only", actionLabel:"두 곳 비교하기"},
+     actions:["locate","dismiss"], userState:{status:"open"}}
+  ],
+  formatChecklist:[
+    {sectionId:"PART1_I",  label:"모집 또는 매출에 관한 일반사항", status:"present", page:3},
+    {sectionId:"PART1_II", label:"증권의 주요 권리내용", status:"present", page:15},
+    {sectionId:"PART1_III",label:"투자위험요소", status:"partial", page:22,
+     missingSubsections:["3. 기타위험"], findingId:"f_005"},
+    {sectionId:"PART1_IV", label:"인수인의 의견(분석기관의 평가의견)", status:"present", page:48},
+    {sectionId:"PART1_V",  label:"자금의 사용목적", status:"present", page:56},
+    {sectionId:"PART1_VI", label:"그 밖에 투자자보호를 위해 필요한 사항", status:"missing", page:null}
+  ],
+  researchSuggestions:[
+    {id:"rs_001", provider:"KRX", title:"유사 발행 사례",
+     reason:"같은 업종에서 최근 6개월 내 유상증자 사례 3건이 있어요. 발행조건을 비교해 보세요.",
+     url:"https://kind.krx.co.kr", queryHint:"업종 IT서비스 · 유상증자 · 최근 6개월"},
+    {id:"rs_002", provider:"DeepSearch", title:"뉴스·공시 리스크",
+     reason:"투자위험요소에 적힌 소송 관련 내용이 최근 보도와 일치하는지 확인해 보세요.",
+     url:"https://www.deepsearch.com", queryHint:"예시테크 소송 2026"},
+    {id:"rs_003", provider:"FnGuide", title:"컨센서스 비교",
+     reason:"신고서의 향후 실적 전망이 시장 컨센서스와 크게 다르지 않은지 대조해 보세요.",
+     url:"https://comp.fnguide.com", queryHint:"예시테크 실적 컨센서스"}
+  ]
+};
+
+/* ══════════ tiny helpers ══════════ */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let toastT;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('on'), 2200);
+}
+function fmtSize(b){ return b >= 1048576 ? (b/1048576).toFixed(1)+'MB' : Math.max(1,Math.round(b/1024))+'KB'; }
+
+/* theme toggle */
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme');
+  const dark = cur === 'dark' || (!cur && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+}
+$('#themeBtn').onclick = toggleTheme;
+$('#themeBtn2').onclick = toggleTheme;
+$('#helpBtn').onclick = () => toast('신고서 1건만 올려도 DART 대조까지 돌아가요');
+
+/* ══════════ Page 1 · ingestion ══════════ */
+const slots = { main:[], underwriting:[], bond_mgmt:[], paying_agent:[], etc:[] };
+
+function renderChips(slot){
+  const box = slot === 'main' ? $('#chipsMain') : $(`[data-chips="${slot}"]`);
+  box.innerHTML = slots[slot].map(f => `
+    <div class="filechip">
+      <span class="fc-ico" aria-hidden="true">✓</span>
+      <div>
+        <div class="fc-name">${esc(f.name)}</div>
+        <div class="fc-meta">${esc(f.meta)}</div>
+      </div>
+      <button class="fc-del press" data-del="${slot}" data-id="${f.id}">삭제</button>
+    </div>`).join('');
+  $('#startBtn').disabled = slots.main.length === 0;
+  $('#dzMainTitle').textContent = slots.main.length ? '다른 파일도 올릴 수 있어요' : '여기에 파일을 놓아주세요';
+}
+
+let fid = 0;
+function addFiles(slot, files){
+  [...files].forEach(f => {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if(!['hwp','hwpx','pdf','docx','xlsx'].includes(ext)){
+      toast('이 형식은 아직 열 수 없어요. PDF로 저장해서 올려주세요'); return;
+    }
+    if(f.size > 80*1024*1024){ toast('파일이 너무 커요. 80MB까지 올릴 수 있어요'); return; }
+    const tables = 4 + Math.floor(Math.random()*16);
+    slots[slot].push({ id:'f'+(++fid), name:f.name, meta:`${fmtSize(f.size)} · 표 ${tables}개 인식됨` });
+  });
+  renderChips(slot);
+}
+
+document.addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if(del){
+    const s = del.dataset.del;
+    slots[s] = slots[s].filter(f => f.id !== del.dataset.id);
+    renderChips(s);
+  }
+});
+
+/* dropzones */
+function wireZone(zone, slot){
+  const input = document.createElement('input');
+  input.type = 'file'; input.multiple = true; input.className = 'sr';
+  input.accept = '.hwp,.hwpx,.pdf,.docx,.xlsx';
+  zone.after(input);
+  input.addEventListener('change', () => { addFiles(slot, input.files); input.value=''; });
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); input.click(); }});
+  ['dragenter','dragover'].forEach(t => zone.addEventListener(t, e => {
+    e.preventDefault(); zone.classList.add('drag');
+    zone.querySelector('.dz-title').textContent = '놓으면 바로 시작할게요!';
+  }));
+  ['dragleave','drop'].forEach(t => zone.addEventListener(t, e => {
+    e.preventDefault(); zone.classList.remove('drag');
+    zone.querySelector('.dz-title').textContent = slot==='main' && slots.main.length
+      ? '다른 파일도 올릴 수 있어요' : '여기에 파일을 놓아주세요';
+  }));
+  zone.addEventListener('drop', e => { if(e.dataTransfer?.files?.length) addFiles(slot, e.dataTransfer.files); });
+}
+wireZone($('#dzMain'), 'main');
+$$('[data-slot]').forEach(z => wireZone(z, z.dataset.slot));
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+/* accordions */
+$$('.acc').forEach(acc => {
+  const head = $('.acc-head', acc);
+  head.addEventListener('click', () => {
+    const open = acc.classList.toggle('open');
+    head.setAttribute('aria-expanded', String(open));
+  });
+});
+
+/* URL input — 화이트리스트 검증은 서버 SSRF 가드와 같은 규칙을 UI에서 미리 안내 */
+const ALLOWED_HOSTS = ['dart.fss.or.kr','opendart.fss.or.kr','kind.krx.co.kr','www.krx.co.kr'];
+$('#urlBtn').addEventListener('click', () => {
+  const note = $('#urlNote'), raw = $('#urlInput').value.trim();
+  if(!raw){ note.className='urlnote bad'; note.textContent='주소를 입력해 주세요'; return; }
+  let u;
+  try{ u = new URL(raw); }catch{ note.className='urlnote bad'; note.textContent='주소 형식이 올바르지 않아요'; return; }
+  if(!['http:','https:'].includes(u.protocol)){
+    note.className='urlnote bad'; note.textContent='http 또는 https 주소만 가져올 수 있어요'; return;
+  }
+  if(!ALLOWED_HOSTS.includes(u.hostname)){
+    note.className='urlnote bad';
+    note.textContent='DART·KRX 주소만 가져올 수 있어요. 파일로 올려주시겠어요?'; return;
+  }
+  note.className='urlnote'; note.textContent='주소를 확인했어요. 검수 시작하면 서버가 내려받을게요';
+  slots.main.push({ id:'f'+(++fid), name:u.hostname + u.pathname, meta:'URL · 서버에서 내려받아요' });
+  $('#urlInput').value=''; renderChips('main');
+});
+
+/* ══════════ DART 연동 ══════════ */
+const dartState = { live:false, corpName:null, revenue:null, rceptNo:null, reportName:null };
+
+// 브라우저 저장은 이 화면을 쓰는 사람 개인 것으로만 남고, 다른 사람과 공유되지 않아요
+function loadSavedKey(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('dart-settings') || 'null');
+    if(saved){
+      $('#dartKey').value = saved.key || '';
+      $('#dartProxy').value = saved.proxy || '';
+      if(saved.corp) $('#dartCorp').value = saved.corp;
+      $('#dartRemember').checked = true;
+    }
+  }catch{ /* 저장된 값이 없거나 읽을 수 없으면 빈 채로 시작 */ }
+}
+loadSavedKey();
+
+$('#dartKeyToggle').addEventListener('click', () => {
+  const input = $('#dartKey');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  $('#dartKeyToggle').textContent = show ? '숨기기' : '보기';
+});
+
+function setDartBadge(state, label){
+  const b = $('#dartBadge'); b.dataset.state = state; b.textContent = label;
+}
+function setDartStatus(msg, cls){
+  const s = $('#dartStatus'); s.textContent = msg; s.className = 'dart-status' + (cls ? ' ' + cls : '');
+}
+function showFallback(html){
+  const f = $('#dartFallback'); f.innerHTML = html; f.hidden = !html;
+}
+
+async function verifyDart(){
+  const key = $('#dartKey').value.trim();
+  const corp = $('#dartCorp').value.trim();
+  const year = $('#dartYear').value.trim();
+  const reprt = $('#dartReprt').value;
+  const proxy = $('#dartProxy').value.trim().replace(/\/$/,'');
+
+  if(!key){ setDartStatus('API 키를 먼저 넣어주세요', 'err'); $('#dartKey').focus(); return; }
+  if(!corp){ setDartStatus('고유번호(corp_code)를 넣어주세요', 'err'); $('#dartCorp').focus(); return; }
+
+  if($('#dartRemember').checked){
+    try{ localStorage.setItem('dart-settings', JSON.stringify({key, proxy, corp})); }catch{}
+  } else {
+    try{ localStorage.removeItem('dart-settings'); }catch{}
+  }
+
+  const btn = $('#dartVerifyBtn'); btn.disabled = true;
+  setDartBadge('idle', '확인하는 중…');
+  setDartStatus('DART에 회사 정보를 물어보고 있어요…');
+  showFallback('');
+
+  const base = proxy || 'https://opendart.fss.or.kr/api';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try{
+    // 1) 회사개요로 키·고유번호가 맞는지 확인
+    const compUrl = `${base}/company.json?crtfc_key=${encodeURIComponent(key)}&corp_code=${encodeURIComponent(corp)}`;
+    const compRes = await fetch(compUrl, { signal: controller.signal });
+    const comp = await compRes.json();
+    if(comp.status !== '000') throw new DartApiError(comp.status, comp.message);
+
+    dartState.live = true;
+    dartState.corpName = comp.corp_name;
+    setDartBadge('ok', `연동됨 · ${comp.corp_name}`);
+    setDartStatus(`${comp.corp_name} 확인했어요. 재무제표를 불러올게요…`);
+
+    // 2) 재무제표 전체계정으로 매출액 대조용 실데이터 확보 (있으면)
+    if(year){
+      const finUrl = `${base}/fnlttSinglAcntAll.json?crtfc_key=${encodeURIComponent(key)}`
+        + `&corp_code=${encodeURIComponent(corp)}&bsns_year=${encodeURIComponent(year)}`
+        + `&reprt_code=${reprt}&fs_div=CFS`;
+      const finRes = await fetch(finUrl, { signal: controller.signal });
+      const fin = await finRes.json();
+      if(fin.status === '000'){
+        const row = (fin.list || []).find(it =>
+          it.account_id === 'ifrs-full_Revenue' || (it.account_nm || '').includes('매출액'));
+        if(row){
+          dartState.revenue = Number(String(row.thstrm_amount).replace(/,/g,'')) || null;
+          dartState.reportName = `${year} ${$('#dartReprt option:checked').textContent}`;
+          applyLiveRevenue();
+        }
+      }
+      // 013(무자료) 등은 정상 흐름이라 조용히 넘어가요
+    }
+
+    setDartStatus(`실시간 연동 완료 · ${comp.corp_name}`, 'ok');
+    REPORT.issuer.corpName = comp.corp_name;
+  }catch(err){
+    dartState.live = false;
+    if(err instanceof DartApiError){
+      setDartBadge('error', 'DART 오류');
+      setDartStatus(`DART 응답: ${err.message} (status ${err.status})`, 'err');
+    } else {
+      setDartBadge('error', '연동 안 됨');
+      setDartStatus('브라우저에서 직접 연결할 수 없었어요', 'err');
+      showFallback(`
+        <strong>이 화면에서는 DART로 바로 연결되지 않아요</strong>
+        브라우저는 CORS 정책 때문에 opendart.fss.or.kr에 직접 요청할 수 없어요 — 설계서 1.3에서 다룬
+        그대로예요. 실제 서비스에서는 FastAPI 같은 서버가 대신 요청해서 브라우저로 전달해요(BFF).
+        위 "프록시 서버 주소"에 그 서버 주소를 넣으면 이 버튼이 그 서버로 요청을 보내요.
+        지금은 예시 데이터로 검수 화면을 계속 보여줄게요.`);
+    }
+  }finally{
+    clearTimeout(timeout);
+    btn.disabled = false;
+  }
+}
+class DartApiError extends Error{
+  constructor(status, message){ super(message || 'DART 오류'); this.status = status; }
+}
+
+// 실제로 받아온 매출액이 있으면 f_001 예시 finding에 반영해 실데이터 대조를 보여줌
+function applyLiveRevenue(){
+  const f = REPORT.findings.find(x => x.id === 'f_001');
+  if(!f || dartState.revenue == null) return;
+  const millions = Math.round(dartState.revenue / 1e6);
+  const display = millions.toLocaleString('ko-KR') + '백만원';
+  f.expected = { display, note: `${dartState.reportName} · 실시간 조회` };
+  f.evidence = [{ kind:'dart', label:`${dartState.reportName} · ${dartState.corpName || ''}`.trim(),
+                  value: display, url:`https://dart.fss.or.kr/dsaf001/main.do?corpCode=${$('#dartCorp').value.trim()}` }];
+  const statedVal = f.stated && f.stated.display ? parseInt(f.stated.display.replace(/[^\d]/g,''),10) : null;
+  if(statedVal === millions){
+    f.title = '매출액이 DART 공시 수치와 같아요';
+    f.explanation = '실시간으로 대조해봤는데 신고서 수치와 일치해요.';
+    f.severity = 'info'; f.detector = 'rule'; f.confidence = 1.0; f.suggestion = null;
+  } else {
+    f.explanation = `실시간 대조 결과 ${display}이(가) 맞아요. 신고서 값과 차이가 있어요.`;
+  }
+}
+
+$('#dartVerifyBtn').addEventListener('click', verifyDart);
+
+/* ══════════ parsing sheet (SSE 시뮬레이션) ══════════ */
+const STAGES = [
+  {stage:'upload',    progress:20,  message:'파일을 열어보고 있어요', emoji:'📄', step:0},
+  {stage:'parsing',   progress:35,  message:'표 구조를 읽고 있어요', emoji:'📄', step:1},
+  {stage:'dart_fetch',progress:55,  message:'DART에서 과거 공시를 불러오는 중', emoji:'🏛️', step:2},
+  {stage:'rules',     progress:68,  message:'수치를 하나씩 맞춰보고 있어요', emoji:'🧮', step:2},
+  {stage:'llm_review',progress:80,  message:'문장을 한 줄씩 꼼꼼히 보는 중', emoji:'🔍', step:3},
+  {stage:'done',      progress:100, message:'검수 완료!', emoji:'✨', step:4}
+];
+const STEP_LABELS = ['파일을 열었어요','표 14개를 찾았어요','과거 공시 3건 대조 중','문장 검수'];
+const CIRC = 2 * Math.PI * 54;
+
+function renderSteps(active){
+  $('#steps').innerHTML = STEP_LABELS.map((l,i) => {
+    const cls = i < active ? 'done' : i === active ? 'now' : '';
+    const dot = i < active ? '✓' : i === active ? '●' : '○';
+    return `<div class="step ${cls}"><span class="dot" aria-hidden="true">${dot}</span><span>${esc(l)}</span></div>`;
+  }).join('');
+}
+
+let timers = [];
+function startInspection(){
+  $('#scrim').classList.add('on');
+  $('#ctaDock').hidden = true;
+  renderSteps(0);
+  timers.forEach(clearTimeout); timers = [];
+
+  STAGES.forEach((s, i) => {
+    timers.push(setTimeout(() => {
+      $('#ringBar').setAttribute('stroke-dashoffset', String(CIRC * (1 - s.progress/100)));
+      $('#ringNum').textContent = s.progress + '%';
+      const msg = $('#stageMsg');
+      msg.textContent = `${s.message} ${s.emoji}`;
+      msg.classList.remove('swap'); void msg.offsetWidth; msg.classList.add('swap');
+      renderSteps(s.step);
+      if(s.progress > 90) $('#waitCopy').textContent = '거의 다 됐어요';
+      if(s.stage === 'done'){
+        timers.push(setTimeout(showDashboard, 900));
+      }
+    }, i * 1500 + 300));
+  });
+}
+$('#startBtn').addEventListener('click', startInspection);
+
+/* ══════════ Page 2 · dashboard ══════════ */
+const state = { tab:'financial', sev:null };
+
+function openFindings(){ return REPORT.findings.filter(f => f.userState.status === 'open'); }
+
+function countUp(el, to, dur=900){
+  const start = performance.now(), from = Number(el.textContent) || 0;
+  const step = now => {
+    const t = Math.min(1, (now - start)/dur);
+    const e = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(from + (to - from) * e);
+    if(t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function renderHero(animate){
+  const open = openFindings();
+  const err = open.filter(f => f.severity === 'error').length;
+  const warn = open.filter(f => f.severity === 'warning').length;
+  const info = open.filter(f => f.severity === 'info').length;
+  const total = REPORT.summary.checkedItems;
+  const passed = total - open.length;
+  const rate = Math.round(passed / total * 100);
+
+  if(animate) countUp($('#rateNum'), rate); else $('#rateNum').textContent = rate;
+  $('#heroBar').style.width = rate + '%';
+  $('#subline').textContent = err
+    ? `수치 오류 ${err}개를 찾았어요 🔍`
+    : (warn + info ? `오류는 없어요. 확인할 항목이 ${warn + info}개 있어요 🙂` : '깔끔해요! 문제를 못 찾았어요 ✨');
+  $('#metaLeft').textContent = `${total}개 항목을 확인했어요`;
+  $('#issuerLine').innerHTML = dartState.live
+    ? `<span style="color:var(--safe-500);font-weight:700">🏛️ ${esc(REPORT.issuer.corpName)} · DART 실시간 연동</span>`
+    : `${esc(REPORT.issuer.corpName)} · <span style="color:var(--ink-300)">예시 데이터</span>`;
+
+  const chips = [
+    {key:'error',  label:'오류', count:err,   tone:'danger', emoji:'🔴'},
+    {key:'warning',label:'경고', count:warn + 0, tone:'warn', emoji:'🟡'},
+    {key:'passed', label:'정상', count:passed, tone:'safe',  emoji:'🟢'}
+  ];
+  $('#chipRow').innerHTML = chips.map(c => `
+    <button class="schip press" data-tone="${c.tone}" data-sev="${c.key}"
+            aria-pressed="${state.sev === c.key}">
+      <span aria-hidden="true">${c.emoji}</span>${c.label} ${c.count}
+    </button>`).join('');
+}
+
+function renderTabs(){
+  const open = openFindings();
+  $('#tabs').innerHTML = REPORT.tabs.map(t => {
+    const n = open.filter(f => f.tab === t.key).length;
+    return `<button class="tab" role="tab" data-tab="${t.key}"
+      aria-selected="${state.tab === t.key}">${esc(t.label)}<span class="cnt">${n}</span></button>`;
+  }).join('');
+}
+
+function diffCol(v, kind){
+  if(!v) return `<div class="diff-col diff-none"><div class="lbl">기재된 내용</div><div class="val">없음</div>
+    <div class="note">문서에서 찾지 못했어요</div></div>`;
+  const cls = kind === 'stated' ? 'diff-stated' : 'diff-expected';
+  return `<div class="diff-col ${cls}">
+    <div class="lbl">${kind === 'stated' ? '기재된 내용' : '확인된 내용'}</div>
+    <div class="val">${esc(v.display)}</div>
+    ${v.note ? `<div class="note">${esc(v.note)}</div>` : ''}
+  </div>`;
+}
+
+const SEV_META = {error:{e:'🔴',l:'오류'}, warning:{e:'🟡',l:'경고'}, info:{e:'🔵',l:'확인'}};
+
+function findingCard(f){
+  const s = SEV_META[f.severity];
+  const resolved = f.userState.status !== 'open';
+  const lowConf = f.confidence < 0.8;
+  return `<article class="finding ${resolved ? 'resolved' : ''}" role="region" aria-labelledby="t-${f.id}">
+    <div class="f-head">
+      <span class="sev sev-${f.severity}"><span aria-hidden="true">${s.e}</span>${s.l}</span>
+      <div>
+        <div class="f-title" id="t-${f.id}">${esc(f.title)}</div>
+        ${f.detector !== 'rule' ? `<span class="f-badge">AI 추정 ${Math.round(f.confidence*100)}%</span>` : ''}
+      </div>
+      <button class="f-loc press" data-locate="${f.id}">p.${f.location.page} ${esc(f.location.label)}</button>
+    </div>
+
+    <div class="diff">
+      ${diffCol(f.stated, 'stated')}
+      <div class="diff-arrow" aria-hidden="true">→</div>
+      ${diffCol(f.expected, 'expected')}
+    </div>
+
+    ${f.explanation ? `<p class="explain">💬 ${esc(f.explanation)}${lowConf ? ' 확실하진 않지만 한 번 봐주세요.' : ''}</p>` : ''}
+
+    ${f.evidence.map(e => `<div class="ev">
+      <span class="kind">${e.kind === 'dart' ? 'DART' : e.kind === 'cross_document' ? '다른 문서' : '문서 내'}</span>
+      <span>${esc(e.label)}${e.value ? ' · ' + esc(e.value) : ''}</span>
+      ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">공시 열기</a>` : ''}
+    </div>`).join('')}
+
+    ${resolved ? `<div class="state-note">
+        <span>${f.userState.status === 'applied' ? '수정안을 적용했어요' : '이 항목은 넘기기로 했어요'}</span>
+        <button data-undo="${f.id}">되돌리기</button>
+      </div>`
+    : `<div class="acts">
+        <button class="act press" data-locate="${f.id}">원문에서 보기</button>
+        ${f.suggestion && f.actions.includes('apply')
+          ? `<button class="act act-primary press" data-apply="${f.id}">${esc(f.suggestion.actionLabel)}</button>`
+          : f.suggestion ? `<button class="act press" data-locate="${f.id}">${esc(f.suggestion.actionLabel)}</button>` : ''}
+        <button class="act act-quiet press" data-dismiss="${f.id}">무시</button>
+      </div>`}
+  </article>`;
+}
+
+function renderPanel(){
+  const panel = $('#tabPanel');
+  let list = REPORT.findings.filter(f => f.tab === state.tab);
+  if(state.sev === 'error' || state.sev === 'warning'){
+    list = list.filter(f => f.severity === state.sev);
+  } else if(state.sev === 'passed'){
+    list = list.filter(f => f.userState.status !== 'open');
+  }
+
+  let html = '';
+  if(list.length){
+    html += `<div class="list">${list.map(findingCard).join('')}</div>`;
+  } else {
+    html += `<div class="empty"><strong>여기는 깔끔해요 ✨</strong>확인할 항목이 없어요</div>`;
+  }
+
+  if(state.tab === 'textFormat'){
+    html += `<div class="section-head">필수 기재사항 체크리스트</div><div class="card">` +
+      REPORT.formatChecklist.map(c => {
+        const ico = c.status === 'present' ? '✅' : c.status === 'partial' ? '🟡' : '🔴';
+        return `<div class="check">
+          <span class="ck" aria-hidden="true">${ico}</span>
+          <div>
+            <div class="ck-label">${esc(c.label)}</div>
+            ${c.missingSubsections ? `<div class="ck-miss">${esc(c.missingSubsections.join(', '))}이(가) 안 보여요</div>` : ''}
+            ${c.status === 'missing' ? `<div class="ck-miss">항목을 찾지 못했어요</div>` : ''}
+          </div>
+          <span class="ck-page">${c.page ? 'p.' + c.page : '—'}</span>
+        </div>`;
+      }).join('') + `</div>`;
+  }
+
+  if(state.tab === 'context'){
+    html += `<div class="section-head">더 확인해보면 좋아요</div><div class="deck">` +
+      REPORT.researchSuggestions.map(r => `
+        <a class="rcard press" href="${esc(r.url)}" target="_blank" rel="noopener">
+          <span class="prov">${esc(r.provider)}</span>
+          <span class="rt">${esc(r.title)}</span>
+          <span class="rr">${esc(r.reason)}</span>
+          <span class="rq">검색어 · ${esc(r.queryHint)}</span>
+        </a>`).join('') + `</div>`;
+  }
+
+  panel.innerHTML = html;
+}
+
+function renderDashboard(animate){
+  renderHero(animate); renderTabs(); renderPanel();
+}
+
+function showDashboard(){
+  $('#scrim').classList.remove('on');
+  $('#page-ingest').hidden = true;
+  $('#page-dash').hidden = false;
+  $('#ctaDock').hidden = true;
+  $('#metaRight').textContent = (REPORT.summary.elapsedMs/1000).toFixed(1) + '초 걸렸어요';
+  window.scrollTo(0,0);
+  renderDashboard(true);
+}
+
+/* dashboard interactions */
+document.addEventListener('click', e => {
+  const tab = e.target.closest('[data-tab]');
+  if(tab){ state.tab = tab.dataset.tab; renderTabs(); renderPanel(); return; }
+
+  const chip = e.target.closest('[data-sev]');
+  if(chip){
+    state.sev = state.sev === chip.dataset.sev ? null : chip.dataset.sev;
+    renderHero(false); renderPanel(); return;
+  }
+
+  const ap = e.target.closest('[data-apply]');
+  if(ap){
+    const f = REPORT.findings.find(x => x.id === ap.dataset.apply);
+    f.userState.status = 'applied';
+    renderDashboard(true); toast('수정했어요. 내보내기에 반영돼요'); return;
+  }
+
+  const dm = e.target.closest('[data-dismiss]');
+  if(dm){
+    const f = REPORT.findings.find(x => x.id === dm.dataset.dismiss);
+    f.userState.status = 'dismissed';
+    renderDashboard(true); toast('다음 검수에서도 이 항목은 넘길게요'); return;
+  }
+
+  const un = e.target.closest('[data-undo]');
+  if(un){
+    const f = REPORT.findings.find(x => x.id === un.dataset.undo);
+    f.userState.status = 'open';
+    renderDashboard(true); return;
+  }
+
+  const lo = e.target.closest('[data-locate]');
+  if(lo){ openViewer(REPORT.findings.find(x => x.id === lo.dataset.locate)); }
+});
+
+$('#dashBack').addEventListener('click', () => {
+  REPORT.findings.forEach(f => f.userState.status = 'open');
+  $('#page-dash').hidden = true; $('#page-ingest').hidden = false;
+  $('#ctaDock').hidden = false; $('#ringNum').textContent = '0%';
+  $('#ringBar').setAttribute('stroke-dashoffset', String(CIRC));
+  $('#waitCopy').textContent = '보통 40초 정도 걸려요';
+  $('#rateNum').textContent = '0';
+  closeViewer(); window.scrollTo(0,0);
+});
+$('#exportBtn').addEventListener('click', () => {
+  const n = REPORT.findings.filter(f => f.userState.status === 'applied').length;
+  toast(n ? `수정 ${n}건을 반영한 사본을 만들어요` : '아직 적용한 수정이 없어요');
+});
+
+/* ══════════ source viewer · bbox 하이라이팅 ══════════ */
+function paintPage(f){
+  const paper = $('#paper');
+  let html = '';
+  // 본문 라인 (지면 느낌만 내는 렌더 대체물)
+  for(let i = 0; i < 26; i++){
+    const y = 8 + i * 3.3, w = 60 + ((i * 37) % 28), x = 10;
+    html += `<i class="ln" style="left:${x}%;top:${y}%;width:${w}%"></i>`;
+  }
+  // 표 블록
+  if(f.location.kind === 'table'){
+    const b = f.location.bbox;
+    const tx = Math.max(6, (b.x - 0.32) * 100), ty = Math.max(6, (b.y - 0.06) * 100);
+    html += `<span class="tbl" style="left:${tx}%;top:${ty}%;width:72%;height:22%">
+      <i style="left:0;top:33%;width:100%;height:1px"></i>
+      <i style="left:0;top:66%;width:100%;height:1px"></i>
+      <i style="left:38%;top:0;width:1px;height:100%"></i>
+      <i style="left:69%;top:0;width:1px;height:100%"></i></span>`;
+  }
+  const b = f.location.bbox;
+  html += `<span class="hl" style="left:${b.x*100}%;top:${b.y*100}%;width:${b.w*100}%;height:${b.h*100}%"></span>`;
+  paper.innerHTML = html;
+}
+
+function openViewer(f){
+  if(!f) return;
+  paintPage(f);
+  $('#vTitle').textContent = `p.${f.location.page} · ${f.location.label}`;
+  const loc = f.location;
+  $('#vSub').textContent = loc.cell
+    ? `${loc.blockId} · ${loc.cell.rowHeader} × ${loc.cell.colHeader}`
+    : loc.charStart != null ? `${loc.blockId} · ${loc.charStart}~${loc.charEnd}자` : loc.blockId;
+  $('#paper').style.transform = 'scale(1)';
+  $('#viewer').classList.add('on');
+  $('#viewer').setAttribute('aria-hidden','false');
+  $('#vClose').focus();
+}
+function closeViewer(){
+  $('#viewer').classList.remove('on');
+  $('#viewer').setAttribute('aria-hidden','true');
+}
+$('#vClose').addEventListener('click', closeViewer);
+$$('[data-zoom]').forEach(b => b.addEventListener('click', () => {
+  $('#paper').style.transform = `scale(${b.dataset.zoom})`;
+}));
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeViewer(); });
+
+renderChips('main');
+</script>
+</body>
+</html>
